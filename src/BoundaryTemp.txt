@@ -1,0 +1,598 @@
+/*
+##################################################################################
+
+	Written by David Brandyberry, University of Illinois at Urbana-Champaign
+	All rights reserved
+	Last Updated September 2016
+
+##################################################################################
+*/
+#ifndef _BCS_H_
+#define _BCS_H_
+#include "Mesh.h"
+#include "common.h"
+#include <set>
+#include <map>
+#include <string>
+
+
+// Forward declaration of mesh class
+class Mesh;
+class Partitioner;
+class PartitionerSerial;
+
+class BoundaryObject
+{
+	protected:
+
+		// The mesh that this BoundaryObject is associated with
+		Mesh* _mesh;
+
+		// Some typedefs
+		typedef std::map<std::string, std::set<id_type> > nodeset_t;
+		typedef std::map<std::string, std::set<std::pair<id_type, id_type> > > sideset_t;
+		typedef std::map<id_type, std::map<id_type, double> > dirichlet_t;
+
+		// INFORMATION ABOUT GROUPS OF NODES AND ELEMENTS
+		//----------------------------------------------------------------------------------------------------------------------------------------------
+
+		/*
+		 * Data structure containing global node ids.
+		 * Each nodeset will contain a list of node numbers associated with it
+		 * Useful for applying BCs
+		*/
+		//std::vector<NamedSet> _nodesets;
+		nodeset_t _nodesets;
+
+		 /*
+		  *	Data structure to hold sideset information
+		  * Contains pairs of gloabl element numbers and the element local sides that are part of the set
+		 */
+		sideset_t _sidesets;
+		
+		
+		
+		
+		// INFORMATION ABOUT BOUNDARY CONDITIONS
+		//----------------------------------------------------------------------------------------------------------------------------------------------
+		/*
+		 * Structure to hold the dirichlet bcs associated with the local mesh
+		 * _dirichlet_bcs[i][j] corresponds to to the node with global id "i" and the j dof on that node (0-2 for 3D elasticity)
+		*/
+		dirichlet_t _dirichlet_bcs;
+		dirichlet_t _individuals;
+
+		// Structures containing all of the BCs added before applcation
+		std::map<std::string, std::vector<std::pair<id_type, double> > > _dirichlet_nodeset_bcs;
+
+		std::set<id_type> _lock_down_directions;
+
+		// Define friend classes
+		friend class Mesh;
+		friend class Partitioner;
+		friend class PartitionerSerial;
+
+
+	public:
+
+		// Constructor
+		BoundaryObject(Mesh* the_mesh);
+
+		// Used to add a mesh object to a BoundaryObject that has been cleared
+		void attach_mesh(Mesh* the_mesh) {_mesh = the_mesh;};
+
+		// Clears the boundary object
+		void clear();
+
+		// Only copies over the geometry terms of the other object
+		void copyGeometry(BoundaryObject* other);
+
+		// Add a new nodeset. To do this you need a nam and a vector of the global node ids that will belong to the nodeset
+		void add_nodeset(std::string name, std::set<id_type>& nodes);
+
+		// Add a new nodeset without any checks so its faster
+		void add_nodeset_total(std::string name, std::set<id_type>& nodes);
+
+		// Adds an individual value to the given nodeset
+		void add_to_nodeset(std::string name, id_type val);
+
+		// Add a new sideset. To do this you need a name and a vector of the global element ids and side ids that will belong to the elemset
+		void add_sideset(std::string name, std::set<std::pair<id_type, id_type> >& sides);
+
+		// Add a new sideset without checks so its faster
+		void add_sideset_total(std::string name, std::set<std::pair<id_type, id_type> >& sides);
+
+		// Adds an individual value to the given sideset
+		void add_to_sideset(std::string name, std::pair<id_type, id_type> val);
+
+		// Function to return the given nodeset
+		std::set<id_type> get_nodeset(id_type idx);
+		
+		// Function to return the given nodeset
+		std::set<id_type> get_nodeset(std::string name);
+
+		// Function to return the given sideset
+		std::set<std::pair<id_type, id_type> > get_sideset(id_type idx);
+		
+		// Function to return the given sideset
+		std::set<std::pair<id_type, id_type> > get_sideset(std::string name);
+
+		// Function to return the number of nodesets
+		id_type n_nodesets() {return _nodesets.size();};
+
+		// Function to return the number of sidesets
+		id_type n_sidesets() {return _sidesets.size();};
+
+		// Set iterator definitions
+		typedef nodeset_t::iterator nodeset_iterator;
+		typedef sideset_t::iterator sideset_iterator;
+		nodeset_iterator nodesets_begin() {return _nodesets.begin();};
+		nodeset_iterator nodesets_end() {return _nodesets.end();};
+		sideset_iterator sidesets_begin() {return _sidesets.begin();};
+		sideset_iterator sidesets_end() {return _sidesets.end();};
+
+		// Function to apply BCs that were assciated with a nodeset or a sideset
+		void apply_BCs();
+
+		/*
+		* Functions to add a prescribed dof to the mesh
+		* 1. Add a single dirichlet bc so a single node and single dof
+		* 2. Add a vector of dirichlet bcs to a vector of nodes and vector of dofs
+		* 3. Add a single dirichlet bc to a vector of nodes on a single dof
+		* 4. Add a vector of dirichlet bcs to a single nodeset (number) and a vector of dofs
+		* 5. Add a vector of dirichlet bcs to a single nodeset (name) and a vector of dofs
+		* 6. Add a single dirichlet bc to a single nodeset (number) and a single dof
+		* 7. Add a single dirichlet bc to a single nodeset (name) and a single dof
+		*/
+		void set_dirichlet_bc(id_type node, id_type dof, double val);
+		void set_dirichlet_bcs(std::vector<id_type>& nodes, std::vector<id_type>& dofs, std::vector<double>& vals);
+		void set_dirichlet_bcs(std::vector<id_type>& nodes, id_type dof, double val);
+		//void set_dirichlet_bcs_from_nodeset(id_type set, std::vector<id_type>& dofs, std::vector<double>& vals);
+		//void set_dirichlet_bcs_from_nodeset(id_type set, id_type dof, double val);
+		//void set_dirichlet_bcs_from_nodeset(std::string set_name, std::vector<id_type>& dofs, std::vector<double>& vals);
+		void set_dirichlet_bcs_from_nodeset(std::string set_name, id_type dof, double val);
+
+		void lock_down_direction(id_type dir) {_lock_down_directions.insert(dir);};
+		
+		// Function to determine if a given node and dof has a boundary condition
+		bool has_dirichlet_bc(id_type node, id_type dof);
+
+		id_type n_dirichlet_on_node(id_type node);
+
+		// Function to get the prescribed value 
+		double get_dirichlet_bc(id_type node, id_type dof, bool& exists);
+
+		// Boundary condition iterator
+		typedef dirichlet_t::iterator dirichlet_iterator;
+		dirichlet_iterator dirichlet_begin() {return _dirichlet_bcs.begin();};
+		dirichlet_iterator dirichlet_end() {return _dirichlet_bcs.end();};
+};
+
+
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+##################################################################################
+
+	Written by David Brandyberry, University of Illinois at Urbana-Champaign
+	All rights reserved
+	Last Updated September 2016
+
+##################################################################################
+*/
+#include "BoundaryObject.h"
+#include "Mesh.h"
+#include "DofObject.h"
+#include "node.h"
+#include <algorithm>
+
+BoundaryObject::BoundaryObject(Mesh* the_mesh)
+	: _mesh(the_mesh)
+{
+}
+
+
+void BoundaryObject::clear()
+{
+	_mesh = NULL;
+	_nodesets.clear();
+	_sidesets.clear();
+	_dirichlet_bcs.clear();
+	_individuals.clear();
+	_dirichlet_nodeset_bcs.clear();
+}
+
+// Only copies over the geometry terms of the other object
+void BoundaryObject::copyGeometry(BoundaryObject* other)
+{
+	_mesh = other->_mesh;
+	_nodesets = other->_nodesets;
+	_sidesets = other->_sidesets;
+}
+
+
+// Add a new nodeset. To do this you need a name and a set of the global node ids that will belong to the nodeset
+void BoundaryObject::add_nodeset(std::string name, std::set<id_type>& nodes)
+{	
+	// Check to see if a nodeset with the same name has been created before
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper); // Capitilize the name
+	if(_nodesets.find(name) != _nodesets.end())
+		err_message("Cannot create multiple nodesets with the same name.");
+	else
+	{
+		// Figure out which nodes are actually in the local mesh and add them
+		std::set<id_type> nodes_to_add;
+		for(auto it=nodes.begin(), end=nodes.end(); it!=end; ++it)
+			if(_mesh->node_in_local_mesh(*it))
+				nodes_to_add.insert(*it);
+
+		_nodesets[name].swap(nodes_to_add);
+	}
+}
+
+// Add a new nodeset without any checks so its faster
+void BoundaryObject::add_nodeset_total(std::string name, std::set<id_type>& nodes)
+{
+	// Check to see if a nodeset with the same name has been created before
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper); // Capitilize the name
+	if(_nodesets.find(name) != _nodesets.end())
+		err_message("Cannot create multiple nodesets with the same name.");
+	else
+		_nodesets[name].swap(nodes);
+}
+
+void BoundaryObject::add_to_nodeset(std::string name, id_type val)
+{
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper); // Capitilize the name
+	std::map<std::string, std::set<id_type> >::iterator it = _nodesets.find(name);
+	if (it != _nodesets.end())
+	{
+		if(_mesh->node_in_local_mesh(val))
+			it->second.insert(val);
+	}
+	else
+		err_message("Attempted to add a node id to a node set that does not exist in the mesh.");
+}
+
+
+// Add a new sideset. To do this you need a name and a vector of the global element ids that will belong to the elemset
+void BoundaryObject::add_sideset(std::string name, std::set<std::pair<id_type, id_type> >& sides)
+{
+	// Check to see if a sideset with the same name has been created before
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper); // Capitilize the name
+	if(_sidesets.find(name) != _sidesets.end())
+		err_message("Cannot create multiple sidesets with the same name.");
+	else
+	{
+		// Figure out which elements are actually in the local mesh and add them
+		std::set<std::pair<id_type, id_type> > sides_to_add;
+		for(auto it=sides.begin(), end=sides.end(); it!=end; ++it)
+			if(_mesh->elem_in_local_mesh(it->first))
+				sides_to_add.insert(*it);
+
+		_sidesets[name].swap(sides_to_add);
+	}
+}
+
+// Add a new sideset without checks so its faster
+void BoundaryObject::add_sideset_total(std::string name, std::set<std::pair<id_type, id_type> >& sides)
+{
+	// Check to see if a sideset with the same name has been created before
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper); // Capitilize the name
+	if(_sidesets.find(name) != _sidesets.end())
+		err_message("Cannot create multiple sidesets with the same name.");
+	else
+		_sidesets[name].swap(sides);
+}
+
+void BoundaryObject::add_to_sideset(std::string name, std::pair<id_type, id_type> val)
+{
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper); // Capitilize the name
+	std::map<std::string, std::set<std::pair<id_type, id_type> > >::iterator it = _sidesets.find(name);
+	if (it != _sidesets.end())
+	{
+		if(_mesh->elem_in_local_mesh(val.first))
+			it->second.insert(val);
+	}
+	else
+		err_message("Attempted to add an element id to a side set that does not exist in the mesh.");
+}
+
+
+// Function to return the given nodeset
+std::set<id_type> BoundaryObject::get_nodeset(id_type idx)
+{
+	if(idx>=n_nodesets())
+		err_message("Please select a valid nodeset.");
+	else
+	{
+		id_type count=0;
+		for(auto it=_nodesets.begin(), end=_nodesets.end(); it!=end; ++it, ++count)
+			if(count==idx)
+				return it->second;
+	}
+	err_message("We'll never get here!");
+}
+
+
+// Function to return the given nodeset
+std::set<id_type> BoundaryObject::get_nodeset(std::string name)
+{
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper); // Capitilize the name
+	if(_nodesets.find(name) != _nodesets.end())
+		return _nodesets[name];
+	else
+		err_message("Please select a valid nodeset.");
+}
+
+
+// Function to return the given elemset
+std::set<std::pair<id_type, id_type> > BoundaryObject::get_sideset(id_type idx)
+{
+	if(idx>=n_sidesets())
+		err_message("Please select a valid sideset.");
+	else
+	{
+		id_type count=0;
+		for(auto it=_sidesets.begin(), end=_sidesets.end(); it!=end; ++it, ++count)
+			if(count==idx)
+				return it->second;
+	}
+	err_message("We'll never get here!");
+}
+
+
+// Function to return the given elemset
+std::set<std::pair<id_type, id_type> > BoundaryObject::get_sideset(std::string name)
+{
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper); // Capitilize the name
+	if(_sidesets.find(name) != _sidesets.end())
+		return _sidesets[name];
+	else
+		err_message("Please select a valid sideset.");
+}
+
+
+
+
+
+
+// Function to apply an unapplied BCs
+void BoundaryObject::apply_BCs()
+{
+	// Clear any old boundary conditions
+	_dirichlet_bcs.clear();
+
+	// Apply all BCs applied to a nodeset
+	for (auto it=_dirichlet_nodeset_bcs.begin(), end=_dirichlet_nodeset_bcs.end(); it!=end; ++it)
+	{
+		for (id_type i=0; i<it->second.size(); ++i)
+		{
+			id_type dof = it->second[i].first;
+			double val = it->second[i].second;
+			// Grab a refernece to the set
+			std::set<id_type>& set = _nodesets[it->first];
+			for (auto it2=set.begin(), end2=set.end(); it2!=end2; ++it2)
+			{
+				id_type node = *it2;
+				_dirichlet_bcs[node][dof] = val;
+			}
+		}
+	}
+
+	// All BCs applied to individual nodes
+	for (auto it=_individuals.begin(), end=_individuals.end(); it!=end; ++it)
+		for (auto it2=it->second.begin(), end2=it->second.end(); it2!=end2; ++it2)
+			_dirichlet_bcs[it->first][it2->first] = it2->second;
+
+	// If I want to lock down any direction completely
+	for (auto it=_lock_down_directions.begin(), end=_lock_down_directions.end(); it!=end; ++it)
+	{
+		// Apply bcs to all normal nodes
+		for (Mesh::node_iterator it2=_mesh->nodes_begin(), end2=_mesh->nodes_end(); it2!=end2; ++it2)
+		{
+			id_type id = (*it2)->get_id();
+			if (_mesh->check_node_responsibility( id ))
+				_dirichlet_bcs[id][*it] = 0.0;
+		}
+
+		// Apply bcs to all enriched nodes
+		for (Mesh::enrich_node_iterator it2=_mesh->enrich_nodes_begin(), end2=_mesh->enrich_nodes_end(); it2!=end2; ++it2)
+		{
+			id_type id = (*it2)->get_id();
+			if (_mesh->check_node_responsibility( id ))
+				_dirichlet_bcs[id][*it] = 0.0;
+		}
+	}
+}
+
+
+
+
+
+
+
+/*
+ * Functions to add a prescribed dof to the mesh
+ * 1. Add a single dirichlet bc so a single node and single dof
+ * 2. Add a vector of dirichlet bcs to a vector of nodes and vector of dofs
+ * 3. Add a single dirichlet bc to a vector of nodes on a single dof
+ * 4. Add a vector of dirichlet bcs to a single nodeset (number) and a vector of dofs (FIXME: Don't know how to make agnostic of partitioning)
+ * 5. Add a vector of dirichlet bcs to a single nodeset (name) and a vector of dofs (FIXME: Don't know how to make agnostic of partitioning)
+ * 6. Add a single dirichlet bc to a single nodeset (number) and a single dof
+ * 7. Add a single dirichlet bc to a single nodeset (name) and a single dof
+*/
+
+// 1. Add a single dirichlet bc so a single node and single dof
+void BoundaryObject::set_dirichlet_bc(id_type node, id_type dof, double val) // FIXME: should check if dof is less than the number of dofs existsing for it
+{	
+	if( _mesh->node_in_local_mesh(node) ) // This mesh has a copy of this node
+	{
+		if(_mesh->own_node(node)) // I own this node
+		{
+			if(_individuals.find(node)==_individuals.end()) // Make sure there at least an empty map to insert into
+				_individuals[node] = std::map<id_type, double>();
+
+			_individuals[node][dof] = val;
+		}
+	}
+}
+// 2. Add a vector of dirichlet bcs to a vector of nodes and vector of dofs
+void BoundaryObject::set_dirichlet_bcs(std::vector<id_type>& nodes, std::vector<id_type>& dofs, std::vector<double>& vals)
+{
+	if(nodes.size()!=dofs.size() || dofs.size()!=vals.size())
+		err_message("Vectors for creation of a boundary condition must be the same size.");
+	
+	for(id_type i=0; i<nodes.size(); ++i)
+		set_dirichlet_bc(nodes[i], dofs[i], vals[i]);
+}
+// 3. Add a single dirichlet bc to a vector of nodes on a single dof
+void BoundaryObject::set_dirichlet_bcs(std::vector<id_type>& nodes, id_type dof, double val)
+{	
+	for(id_type i=0; i<nodes.size(); ++i)
+		set_dirichlet_bc(nodes[i], dof, val);
+}
+/*
+// 4. Add a vector of dirichlet bcs to a single nodeset (number) and a vector of dofs
+void Mesh::set_dirichlet_bcs_from_nodeset(id_type set, std::vector<id_type>& dofs, std::vector<double>& vals)
+{
+	if(!_init) err_message("Must initiailize the mesh prior to calling set_dirichlet_bcs_from_nodeset.");
+	
+	if(set>=_nodesets.size())
+		err_message("Please select a valid nodeset.");
+	
+	if(_nodesets[set].size()!=dofs.size() || dofs.size()!=vals.size())
+		err_message("Vectors for creation of a boundary condition must be the same size.");
+	
+	NamedSet::iterator it = _nodesets[set].begin();
+	NamedSet::iterator end = _nodesets[set].end();
+	int i = 0;
+	for(; it!=end; ++it)
+	{
+		set_dirichlet_bc((*it), dofs[i], vals[i]);
+		i++;
+	}
+}
+*/
+/*
+// 5. Add a vector of dirichlet bcs to a single nodeset (name) and a vector of dofs
+void BoundaryObject::set_dirichlet_bcs_from_nodeset(std::string set_name, std::vector<id_type>& dofs, std::vector<double>& vals)
+{	
+	if(_nodesets[set_name].size()!=dofs.size() || dofs.size()!=vals.size())
+		err_message("Vectors for creation of a boundary condition must be the same size.");
+
+	if(_nodesets.find(set_name) == _nodesets.end())
+		err_message("Please select a valid nodeset.");
+	else
+	{
+		if(_nodesets[set_name].size() != dofs.size())
+			err_message("There must be only one BC per node in the local mesh for the given nodeset.");
+
+		int i=0;
+		for(auto it=_nodesets[set_name].begin(), end=_nodesets[set_name].end(); it!=end; ++it, ++i)
+			set_dirichlet_bc((*it), dofs[i], vals[i]);
+	}
+}
+*/
+// 7. Add a single dirichlet bc to a single nodeset (name) and a single dof
+void BoundaryObject::set_dirichlet_bcs_from_nodeset(std::string set_name, id_type dof, double val)
+{
+	std::transform(set_name.begin(), set_name.end(), set_name.begin(), ::toupper); // Capitilize the name
+	if(_nodesets.find(set_name) == _nodesets.end())
+		err_message("Please select a valid nodeset.");
+	else
+		_dirichlet_nodeset_bcs[set_name].push_back(std::pair<id_type, double>(dof, val));
+}
+
+
+// Function to determine if a given node and dof has a boundary condition
+bool BoundaryObject::has_dirichlet_bc(id_type node, id_type dof)
+{
+	if(_dirichlet_bcs.find(node)==_dirichlet_bcs.end()) // Node either isn't in the local mesh or it doesn't have any bcs on it
+		return false;
+	else
+	{
+		if(_dirichlet_bcs[node].find(dof)==_dirichlet_bcs[node].end()) // Node doesn't have a bc on that dof
+			return false;
+		else
+			return true;
+	}
+}
+
+// Function to get the prescribed value. Maybe should just define an iterator?
+double BoundaryObject::get_dirichlet_bc(id_type node, id_type dof, bool& exists)
+{
+	exists = has_dirichlet_bc(node, dof);
+	if(exists)
+		return _dirichlet_bcs[node][dof];
+	else
+		return 0.0; // Depend on checking exists to see if this is actually a boundary condition
+}
+
+id_type BoundaryObject::n_dirichlet_on_node(id_type node)
+{
+	if(_dirichlet_bcs.find(node)!=_dirichlet_bcs.end())
+		return _dirichlet_bcs[node].size();
+	else
+		return 0;
+}
