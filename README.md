@@ -8,6 +8,7 @@ Developed by David Brandyberry (brandyb2@illinois.edu)
 Last Update 8/8/2016
 
 Inside this zip folder you should find 12 things:
+
 	1. petsc-lite-3.7.3.tar.gz
 	2. metis-5.1.0.tar.gz
 	3. gsl-2.1.tar.gz
@@ -26,6 +27,7 @@ If you don't have all of these things something is wrong, please email the devel
 NOTE: If you don't have an internet connections, these instructions will not work as external packages are downloaded
 
 Installation instructions:
+
 	1. Run the setup script with the command "./setup"
 		- This script will take ~30 minutes to run
 		- This will decompress and compile PETSc, METIS, and GSL (GNU Scientific Library)
@@ -45,6 +47,7 @@ Installation instructions:
 
 
 Running Instructions:
+
 	1. You should have an exectuable in your current directory called Main. PCIGFEM is called from this file using command line parameters to control input
 	
 	2. Currently Main is only structured to read and parse input files containing "x,y,r" data that describes circular fibers. To run a file matching this descriptions continue with these instructions. Otherwise you're out of luck until the developer passes Quals.
