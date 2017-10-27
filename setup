@@ -1,0 +1,222 @@
+#!/bin/bash
+
+curr_dir=$(pwd)
+echo $curr_dir
+
+PETSC_VERSION="3.7.3"
+METIS_VERSION="5.1.0"
+GSL_VERSION="2.1"
+
+
+
+# No command line parameters were passed in so we'll build the optimized version of the dependancies
+if [ "$#" -eq 0 ]; then
+
+
+	# UNZIP AND BUILD THE PETSC DEPENDANCY
+	# ------------------------------------
+	PETSC_DIR="$curr_dir""/petsc-""$PETSC_VERSION"
+
+	# Unzip
+	if [ ! -d "$PETSC_DIR" ]; then
+		echo "UNZIPPING PETSC..."
+		gunzip petsc-lite-"$PETSC_VERSION".tar.gz
+		tar -xvf petsc-lite-"$PETSC_VERSION".tar
+		mv petsc-lite-"$PETSC_VERSION".tar petsc-"$PETSC_VERSION"/petsc-lite-"$PETSC_VERSION".tar
+	fi
+
+	cd "$PETSC_DIR"
+
+	PETSC_OPT_ARCH="arch_external_opt"
+	PETSC_OPT_ARCH_DIR="$PETSC_DIR""/""$PETSC_OPT_ARCH"
+	if [ ! -d "$PETSC_OPT_ARCH_DIR" ]; then
+		echo "INSTALLING PETSC..."
+		./configure --PETSC_ARCH="$PETSC_OPT_ARCH" --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --download-mpich --download-fblaslapack --download-parmetis --download-metis \
+		--download-hypre --download-superlu_dist --download-scalapack --download-mumps --with-shared-libraries=1 --with-debugging=0 \
+		COPTFLAGS='-O3 -march=native -mtune=native' CXXOPTFLAGS='-O3 -march=native -mtune=native' FOPTFLAGS='-O3 -march=native -mtune=native'
+
+		make PETSC_DIR="$PETSC_DIR" PETSC_ARCH="$PETSC_OPT_ARCH" all
+		make PETSC_DIR="$PETSC_DIR" PETSC_ARCH="$PETSC_OPT_ARCH" test
+		make PETSC_DIR="$PETSC_DIR" PETSC_ARCH="$PETSC_OPT_ARCH" streams
+	fi
+
+	# Set the home directory of the MPI commands
+	MPI_HOME="$PETSC_OPT_ARCH_DIR""/bin"
+	# Add the mpi directory to my path variable and just for the current shell as well
+	export PATH="$MPI_HOME":"$PATH"
+	# echo "export PATH=$MPI_HOME:\$PATH" >> ~/.bashrc
+	
+	echo "Leaving the PETSc directory..."
+	cd ..
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo 
+	echo
+
+
+
+
+
+
+	# UNZIP AND BUILD THE GSL DEPENDANCY
+	# ----------------------------------
+	GSL_DIR=$curr_dir"/gsl-"$GSL_VERSION
+
+	# Unzip
+	if [ ! -d "$GSL_DIR" ]; then
+		echo "UNZIPPING GSL..."
+		gunzip gsl-"$GSL_VERSION".tar.gz
+		tar -xvf gsl-"$GSL_VERSION".tar
+		mv gsl-"$GSL_VERSION".tar gsl-"$GSL_VERSION"/gsl-"$GSL_VERSION".tar
+	fi
+
+	cd "$GSL_DIR"
+
+	# Build
+	GSL_INSTALL_DIR="$GSL_DIR""/install"
+	if [ ! -d "$GSL_INSTALL_DIR" ]; then
+		echo "INSTALLING GSL..."
+		mkdir install
+		./configure cc=mpicc --enable-shared prefix="$GSL_INSTALL_DIR"
+		make
+		make install
+	fi
+
+	echo "Leaving the GSL directory..."
+	cd ..
+
+
+
+
+	# Make the optimized version of PCIGFEM
+	make
+
+
+
+	
+
+
+
+else
+
+	# Build the debu versions of the dependancies
+	if [ "$1" == "debug" ]; then
+
+
+		# UNZIP AND BUILD THE PETSC DEPENDANCY
+		# ------------------------------------
+		PETSC_DIR="$curr_dir""/petsc-""$PETSC_VERSION"
+
+		# Unzip
+		if [ ! -d "$PETSC_DIR" ]; then
+			echo "UNZIPPING PETSC..."
+			gunzip petsc-lite-"$PETSC_VERSION".tar.gz
+			tar -xvf petsc-lite-"$PETSC_VERSION".tar
+			mv petsc-lite-"$PETSC_VERSION".tar petsc-"$PETSC_VERSION"/petsc-lite-"$PETSC_VERSION".tar
+		fi
+
+		cd "$PETSC_DIR"
+
+		PETSC_DEBUG_ARCH="arch_external_debug"
+		PETSC_DEBUG_ARCH_DIR="$PETSC_DIR""/""$PETSC_DEBUG_ARCH"
+		if [ ! -d "$PETSC_DEBUG_ARCH_DIR" ]; then
+			echo "INSTALLING PETSC..."
+			./configure --PETSC_ARCH="$PETSC_DEBUG_ARCH" --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --download-fblaslapack --download-mpich --download-parmetis --download-metis \
+			 --download-hypre --download-superlu_dist --download-scalapack --download-mumps --with-shared-libraries=1 --with-debugging=1
+			make PETSC_DIR="$PETSC_DIR" PETSC_ARCH="$PETSC_DEBUG_ARCH" all
+			make PETSC_DIR="$PETSC_DIR" PETSC_ARCH="$PETSC_DEBUG_ARCH" test
+			make PETSC_DIR="$PETSC_DIR" PETSC_ARCH="$PETSC_DEBUG_ARCH" streams
+		fi
+
+		# Set the home directory of the MPI commands
+		MPI_HOME="$PETSC_DEBUG_ARCH_DIR""/bin"
+		# Add the mpi directory to my path variable and just for the current shell as well
+		export PATH="$MPI_HOME":"$PATH"
+
+		echo "Leaving the PETSc directory..."
+		cd ..
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+		echo 
+
+
+
+
+
+		# UNZIP AND BUILD THE GSL DEPENDANCY
+		# ----------------------------------
+		GSL_DIR=$curr_dir"/gsl-"$GSL_VERSION
+
+		# Unzip
+		if [ ! -d "$GSL_DIR" ]; then
+			echo "UNZIPPING GSL..."
+			gunzip gsl-"$GSL_VERSION".tar.gz
+			tar -xvf gsl-"$GSL_VERSION".tar
+			mv gsl-"$GSL_VERSION".tar gsl-"$GSL_VERSION"/gsl-"$GSL_VERSION".tar
+		fi
+
+		cd "$GSL_DIR"
+
+		# Build
+		GSL_INSTALL_DIR="$GSL_DIR""/install"
+		if [ ! -d "$GSL_INSTALL_DIR" ]; then
+			echo "INSTALLING GSL"
+			mkdir install
+			./configure cc=mpicc --enable-shared prefix="$GSL_INSTALL_DIR"
+			make
+			make install
+		fi
+
+		echo "Leaving the GSL directory..."
+		cd ..
+
+
+
+
+		# Make the debug version of PCIGFEM
+		make debug
+
+
+
+	else
+
+
+		if [ "$1" == "clean" ]; then
+
+			rm -rf petsc-"$PETSC_VERSION"
+			rm -rf gsl-"$GSL_VERSION"
+			rm -rf metis-"$METIS_VERSION"
+			make clean
+
+		else
+
+			echo "Unknown command line parameter"
+
+		fi
+	fi
+fi
+
+
